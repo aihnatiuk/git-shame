@@ -1,0 +1,56 @@
+package styles
+
+import "github.com/charmbracelet/lipgloss"
+
+// BlameStyles holds all lipgloss styles used by the blame view.
+type BlameStyles struct {
+	TitleBar  lipgloss.Style
+	StatusBar lipgloss.Style
+	Cursor    lipgloss.Style
+	Hash      lipgloss.Style
+	Date      lipgloss.Style
+	Author    lipgloss.Style
+	LineNum   lipgloss.Style
+	Separator string
+	Loading   lipgloss.Style
+	Error     lipgloss.Style
+}
+
+// Default returns the default BlameStyles.
+func Default() BlameStyles {
+	return BlameStyles{
+		TitleBar: lipgloss.NewStyle().
+			Background(lipgloss.Color("62")).
+			Foreground(lipgloss.Color("230")).
+			Bold(true),
+
+		StatusBar: lipgloss.NewStyle().
+			Background(lipgloss.Color("237")).
+			Foreground(lipgloss.Color("250")),
+
+		Cursor: lipgloss.NewStyle().
+			Background(lipgloss.Color("24")).
+			Foreground(lipgloss.Color("255")),
+
+		Hash: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")),
+
+		Date: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("108")),
+
+		Author: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("183")),
+
+		LineNum: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")),
+
+		Loading: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")),
+
+		Error: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true),
+
+		Separator: " ",
+	}
+}
