@@ -164,6 +164,10 @@ tea.Program
 4. Flex: Code = `termWidth - sum(others) - separators`
 5. Guard: skip if `lines == nil`
 
+### Horizontal Scroll
+
+`hScroll` is applied **only to the Code column** inside `renderCell` — all metadata columns remain fixed. Left-truncation uses `ansi.TruncateLeft(content, hScroll, "")` from `github.com/charmbracelet/x/ansi`, which is ANSI-escape-code-aware. This ensures correct behavior both now (plain text) and in Phase 2 (Chroma-highlighted ANSI output pre-computed in `Update()`).
+
 ---
 
 ## Dependencies
@@ -174,12 +178,13 @@ module shame
 go 1.26
 
 require (
-    github.com/charmbracelet/bubbletea  latest
-    github.com/charmbracelet/bubbles    latest
-    github.com/charmbracelet/lipgloss   latest
-    github.com/alecthomas/chroma/v2     latest
-    github.com/mattn/go-runewidth       latest
-    gopkg.in/yaml.v3                    latest
+    charm.land/bubbletea/v2  latest
+    charm.land/bubbles/v2    latest
+    charm.land/lipgloss/v2   latest
+    github.com/alecthomas/chroma/v2          latest
+    github.com/charmbracelet/x/ansi          latest
+    github.com/mattn/go-runewidth            latest
+    gopkg.in/yaml.v3                         latest
 )
 ```
 
@@ -208,7 +213,7 @@ require (
 
 ### Phase 3
 - `internal/ui/colmenu/model.go` — column toggle popup (`c` key)
-- Horizontal scroll wired (`h`/`l`/arrows)
+- Horizontal scroll already wired (`h`/`l`/arrows); Code-column-only via `ansi.TruncateLeft` (done)
 - `g`/`G` first/last line
 
 ### Phase 4
@@ -228,6 +233,7 @@ require (
 2. **Immutability**: value receivers only; never mutate slices in-place
 3. **Rendering perf**: Chroma pre-computed in `Update()`, never in `View()`
 4. **Width measurement**: `runewidth.StringWidth()` / `lipgloss.Width()` — never `len()`
+8. **Horizontal scroll**: use `ansi.TruncateLeft` on Code content only — never `scrollRight` on the full rendered row; metadata columns must remain fixed
 5. **WindowSizeMsg race**: `RecalcWidths` guards on `lines == nil`
 6. **History cap**: max 50 entries
 7. **Porcelain parsing**: detect content lines by `\t` prefix only

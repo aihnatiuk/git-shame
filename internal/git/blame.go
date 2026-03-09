@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // RepoRoot returns the root directory of the git repository containing path.
@@ -75,6 +75,7 @@ func runBlame(repoRoot, relFile, revision string) ([]BlameLine, error) {
 //   - The actual line content is always prefixed by a literal TAB character.
 //   - Metadata for a commit is only emitted once (on its first appearance).
 func parsePorcelain(data []byte) ([]BlameLine, error) {
+	data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
 	lines := bytes.Split(data, []byte("\n"))
 	metaCache := make(map[string]*CommitMeta)
 	var result []BlameLine
@@ -92,7 +93,8 @@ func parsePorcelain(data []byte) ([]BlameLine, error) {
 
 		// Content line: always starts with a literal TAB.
 		if line[0] == '\t' {
-			content := string(line[1:])
+			// Later I will make this configurable, but for now replace tabs with 4 spaces to avoid rendering issues.
+			content := strings.ReplaceAll(string(line[1:]), "\t", "    ")
 			if current != nil {
 				result = append(result, BlameLine{
 					CommitHash:  current.Hash,

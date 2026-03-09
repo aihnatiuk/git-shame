@@ -1,6 +1,6 @@
 package styles
 
-import "github.com/charmbracelet/lipgloss"
+import "charm.land/lipgloss/v2"
 
 // BlameStyles holds all lipgloss styles used by the blame view.
 type BlameStyles struct {
@@ -11,7 +11,6 @@ type BlameStyles struct {
 	Date      lipgloss.Style
 	Author    lipgloss.Style
 	LineNum   lipgloss.Style
-	Separator string
 	Loading   lipgloss.Style
 	Error     lipgloss.Style
 }
@@ -50,7 +49,5 @@ func Default() BlameStyles {
 		Error: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true),
-
-		Separator: " ",
 	}
 }

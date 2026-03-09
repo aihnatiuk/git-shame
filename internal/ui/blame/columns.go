@@ -3,6 +3,7 @@ package blame
 import (
 	"fmt"
 
+	"charm.land/lipgloss/v2"
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/mattn/go-runewidth"
 )
@@ -105,11 +106,45 @@ func RecalcWidths(cols []Column, lines []git.BlameLine, termWidth int) []Column 
 
 	// Give remaining width to the flex (Code) column.
 	if flexIdx >= 0 {
-		remaining := max(termWidth-used-1, out[flexIdx].MinWidth)
+		remaining := max(termWidth-used, out[flexIdx].MinWidth)
 		out[flexIdx].Width = remaining
 	}
 
 	return out
+}
+
+// CalcMaxHScroll returns the maximum allowed horizontal scroll offset for the
+// Code column: the number of columns by which the longest line exceeds the
+// visible code column width. A terminal resize or new blame load must call
+// this again because both the line content and the code column width can change.
+//
+// For Phase 2, replace runewidth.StringWidth with ansi.StringWidth once
+// line.Content carries pre-computed Chroma ANSI sequences.
+func CalcMaxHScroll(cols []Column, lines []git.BlameLine) int {
+	codeWidth := 0
+	for _, col := range cols {
+		if col.ID == ColCode && col.Visible {
+			codeWidth = col.Width
+			break
+		}
+	}
+
+	if codeWidth == 0 || len(lines) == 0 {
+		return 0
+	}
+
+	maxContent := 0
+	for _, line := range lines {
+		if w := lipgloss.Width(line.Content); w > maxContent {
+			maxContent = w
+		}
+	}
+
+	if maxContent <= codeWidth {
+		return 0
+	}
+
+	return maxContent - codeWidth
 }
 
 func clamp(v, min, max int) int {

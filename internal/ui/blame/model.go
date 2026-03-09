@@ -1,12 +1,17 @@
 package blame
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // LoadState tracks the async loading lifecycle of the blame view.
@@ -43,11 +48,12 @@ type Model struct {
 	state   LoadState
 
 	// Navigation
-	cursor        int // current line index (0-based)
-	offset        int // first visible line index (viewport top)
-	hScroll       int // horizontal scroll offset in visible columns
-	history       []HistoryEntry
-	pendingCursor int // cursor position to restore after a goBack reload
+	cursor           int // current line index (0-based)
+	pendingCursor    int // cursor position to restore after a goBack reload
+	vScrollOffset    int // first visible line index (viewport top)
+	hScrollOffset    int // horizontal scroll offset in visible columns
+	maxHScrollOffset int // upper bound for hScrollOffset
+	history          []HistoryEntry
 
 	// Context
 	repoRoot string
@@ -56,9 +62,10 @@ type Model struct {
 	revision string // commit/ref; empty = HEAD
 
 	// Layout (updated on WindowSizeMsg)
-	width  int
-	height int
-	bodyH  int // height - 2 (title bar + status bar)
+	terminalWidth  int
+	terminalHeight int
+	bodyWidth      int
+	bodyHeight     int
 
 	// Components
 	columns []Column
@@ -97,14 +104,6 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.bodyH = max(msg.Height-2, 1)
-		m.columns = RecalcWidths(m.columns, m.lines, m.width)
-		m.ensureCursorVisible()
-		return m, nil
-
 	case git.BlameResult:
 		if msg.Err != nil {
 			m.state = LoadStateError
@@ -113,7 +112,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 		m.state = LoadStateLoaded
 		m.lines = msg.Lines
-		m.columns = RecalcWidths(m.columns, m.lines, m.width)
+		m.columns = RecalcWidths(m.columns, m.lines, m.bodyWidth)
+		m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.lines)
 		// Restore cursor if we navigated back.
 		if m.pendingCursor > 0 {
 			m.cursor = m.pendingCursor
@@ -121,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if m.cursor >= len(m.lines) {
 				m.cursor = len(m.lines) - 1
 			}
-			m.ensureCursorVisible()
+			m.adjustVerticalScrollOffset()
 		}
 		return m, nil
 
@@ -154,22 +154,19 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Up):
 		m.moveCursor(-1)
 	case key.Matches(msg, m.keys.HalfPageDown):
-		m.moveCursor(m.bodyH / 2)
+		m.moveCursor(m.bodyHeight / 2)
 	case key.Matches(msg, m.keys.HalfPageUp):
-		m.moveCursor(-(m.bodyH / 2))
+		m.moveCursor(-(m.bodyHeight / 2))
 	case key.Matches(msg, m.keys.GoToTop):
 		m.cursor = 0
-		m.offset = 0
+		m.vScrollOffset = 0
 	case key.Matches(msg, m.keys.GoToBottom):
 		m.cursor = len(m.lines) - 1
-		m.ensureCursorVisible()
+		m.adjustVerticalScrollOffset()
 	case key.Matches(msg, m.keys.ScrollRight):
-		m.hScroll += 4
+		m.hScrollOffset = min(m.hScrollOffset+4, m.maxHScrollOffset)
 	case key.Matches(msg, m.keys.ScrollLeft):
-		m.hScroll -= 4
-		if m.hScroll < 0 {
-			m.hScroll = 0
-		}
+		m.hScrollOffset = max(m.hScrollOffset-4, 0)
 	case key.Matches(msg, m.keys.Parent):
 		return m.navigateToParent()
 	case key.Matches(msg, m.keys.Back):
@@ -186,23 +183,62 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // View renders the blame view as a string.
-func (m Model) View() string {
-	title := RenderTitleBar(m.file, m.revision, m.width, m.styles)
+func (m Model) View() tea.View {
+	title := RenderTitleBar(m.file, m.revision, m.bodyWidth, m.styles)
 	body := RenderBody(&m)
-	status := RenderStatusBar(m.cursor, len(m.lines), m.width, m.styles)
-	return title + "\n" + body + "\n" + status
+	status := RenderStatusBar(m.cursor, len(m.lines), m.bodyWidth, m.styles)
+
+	content := lipgloss.JoinVertical(lipgloss.Position(0), title, body, status)
+
+	output := lipgloss.NewStyle().
+		Width(m.terminalWidth).
+		MaxWidth(m.terminalWidth).
+		Height(m.terminalHeight).
+		MaxHeight(m.terminalHeight).
+		Render(content)
+
+	view := tea.NewView(output)
+	view.AltScreen = true
+
+	path, err := filepath.Abs("debug-screen.txt")
+	if err == nil {
+		file, err := os.Create(path)
+		if err == nil {
+			defer file.Close()
+			file.WriteString(view.Content)
+		}
+	}
+
+	return view
 }
 
 // WithSize updates the terminal dimensions. Called by App on WindowSizeMsg.
 func (m Model) WithSize(w, h int) Model {
-	m.width = w
-	m.height = h
-	m.bodyH = h - 2
-	if m.bodyH < 1 {
-		m.bodyH = 1
+	titleHeight, statusHeight := 1, 1
+
+	m.terminalWidth = w
+	m.terminalHeight = h
+	m.bodyWidth = w
+	m.bodyHeight = max(m.terminalHeight-(titleHeight+statusHeight), 1)
+	m.columns = RecalcWidths(m.columns, m.lines, m.bodyWidth)
+	m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.lines)
+	m.hScrollOffset = min(m.hScrollOffset, m.maxHScrollOffset)
+	m.adjustVerticalScrollOffset()
+
+	f, err := filepath.Abs("debug-columns.txt")
+	if err == nil {
+		file, err := os.Create(f)
+		if err == nil {
+			defer file.Close()
+			fmt.Fprintf(file, "terminal H:%d W:%d\n", h, w)
+			fmt.Fprintf(file, "bodyHeight: %d\n", m.bodyHeight)
+			fmt.Fprintf(file, "m.height: %d\n", m.terminalHeight)
+			for _, col := range m.columns {
+				fmt.Fprintf(file, "%s: width=%d\n", col.Label, col.Width)
+			}
+		}
 	}
-	m.columns = RecalcWidths(m.columns, m.lines, m.width)
-	m.ensureCursorVisible()
+
 	return m
 }
 
@@ -215,19 +251,29 @@ func (m *Model) moveCursor(delta int) {
 	if m.cursor >= len(m.lines) {
 		m.cursor = len(m.lines) - 1
 	}
-	m.ensureCursorVisible()
+	m.adjustVerticalScrollOffset()
 }
 
-// ensureCursorVisible adjusts the viewport offset so the cursor is visible.
-func (m *Model) ensureCursorVisible() {
-	if m.cursor < m.offset {
-		m.offset = m.cursor
+// adjustVerticalScrollOffset adjusts the viewport offset so that:
+//  1. the cursor row is visible (scroll down / up as needed), and
+//  2. no empty rows appear at the bottom when lines above could fill them
+//     (e.g. after the terminal grows taller or a new blame loads).
+func (m *Model) adjustVerticalScrollOffset() {
+	if m.cursor < m.vScrollOffset {
+		m.vScrollOffset = m.cursor
 	}
-	if m.cursor >= m.offset+m.bodyH {
-		m.offset = m.cursor - m.bodyH + 1
+	if m.cursor >= m.vScrollOffset+m.bodyHeight {
+		m.vScrollOffset = m.cursor - m.bodyHeight + 1
 	}
-	if m.offset < 0 {
-		m.offset = 0
+
+	// Try to fill the viewport with lines if we have fewer lines than the current offset allows.
+	if len(m.lines) > 0 {
+		if maxOffset := max(0, len(m.lines)-m.bodyHeight); m.vScrollOffset > maxOffset {
+			m.vScrollOffset = maxOffset
+		}
+	}
+	if m.vScrollOffset < 0 {
+		m.vScrollOffset = 0
 	}
 }
 
@@ -244,7 +290,7 @@ func (m Model) navigateToParent() (Model, tea.Cmd) {
 		Revision:   m.revision,
 		CursorLine: m.cursor,
 	}
-	history := append([]HistoryEntry{}, m.history...) // copy
+	history := append([]HistoryEntry{}, m.history...)
 	if len(history) >= maxHistory {
 		history = history[1:]
 	}
@@ -255,7 +301,7 @@ func (m Model) navigateToParent() (Model, tea.Cmd) {
 	m.state = LoadStateLoading
 	m.lines = nil
 	m.cursor = 0
-	m.offset = 0
+	m.vScrollOffset = 0
 
 	return m, tea.Batch(
 		git.RunBlameCmd(m.repoRoot, m.relFile, parentRev),
@@ -277,7 +323,7 @@ func (m Model) goBack() (Model, tea.Cmd) {
 	m.state = LoadStateLoading
 	m.lines = nil
 	m.cursor = 0
-	m.offset = 0
+	m.vScrollOffset = 0
 
 	return m, tea.Batch(
 		git.RunBlameCmd(m.repoRoot, m.relFile, m.revision),

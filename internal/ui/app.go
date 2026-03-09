@@ -1,9 +1,8 @@
 package ui
 
 import (
+	tea "charm.land/bubbletea/v2"
 	"github.com/aihnatiuk/git-shame/internal/ui/blame"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // ViewID identifies which view is currently active.
@@ -67,10 +66,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the currently active view.
-func (a App) View() string {
+func (a App) View() tea.View {
 	switch a.activeView {
 	case ViewBlame:
 		return a.blameModel.View()
 	}
-	return ""
+	return tea.NewView("")
 }

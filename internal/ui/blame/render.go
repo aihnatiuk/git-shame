@@ -2,12 +2,14 @@ package blame
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
+	"github.com/charmbracelet/x/ansi"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -33,11 +35,9 @@ func RenderStatusBar(cursor, total, width int, s styles.BlameStyles) string {
 	}
 	pct := (cursor + 1) * 100 / total
 	status := fmt.Sprintf("  %d/%d  %d%%  ", cursor+1, total, pct)
-	pad := width - runewidth.StringWidth(status)
-	if pad < 0 {
-		pad = 0
-	}
+	pad := max(width-runewidth.StringWidth(status), 0)
 	line := strings.Repeat(" ", pad) + status
+
 	return s.StatusBar.Render(line)
 }
 
@@ -53,34 +53,34 @@ func RenderBody(m *Model) string {
 		return m.styles.Loading.Render("(no data)")
 	}
 
-	start := m.offset
-	end := min(m.offset+m.bodyH, len(m.lines))
+	start := m.vScrollOffset
+	end := min(m.vScrollOffset+m.bodyHeight, len(m.lines))
 
-	var sb strings.Builder
+	rowsList := make([]string, 0, end-start)
 	for i := start; i < end; i++ {
-		row := RenderRow(m.lines[i], m.columns, i == m.cursor, m.hScroll, m.styles)
-		sb.WriteString(row)
-		if i < end-1 {
-			sb.WriteByte('\n')
-		}
+		row := RenderRow(m.lines[i], m.columns, i == m.cursor, m.hScrollOffset, m.styles, m.bodyWidth)
+		rowsList = append(rowsList, row)
 	}
-	return sb.String()
+
+	return lipgloss.JoinVertical(lipgloss.Position(0), rowsList...)
 }
 
 // RenderRow renders a single blame line as a formatted row string.
 //
 // Cursor background is applied per-cell rather than as an outer wrapper so
 // that individual cell resets (\x1b[0m) do not erase the highlight between
-// columns.
+// columns. Horizontal scroll (hScroll) is applied only to the Code column so
+// that metadata columns remain fixed while code scrolls.
 func RenderRow(
 	line git.BlameLine,
 	cols []Column,
 	cursor bool,
 	hScroll int,
 	s styles.BlameStyles,
+	rowWidth int,
 ) string {
-	var cursorBg lipgloss.TerminalColor
-	sep := s.Separator
+	var cursorBg color.Color
+	sep := " "
 	if cursor {
 		cursorBg = s.Cursor.GetBackground()
 		sep = lipgloss.NewStyle().Background(cursorBg).Render(sep)
@@ -91,17 +91,10 @@ func RenderRow(
 		if !col.Visible || col.Width == 0 {
 			continue
 		}
-		cell := renderCell(line, col, cursorBg, s)
-		// Truncate/pad to the exact column width (ANSI-aware via lipgloss).
-		cell = truncatePad(cell, col.Width, cursorBg)
+		cell := renderCell(line, col, hScroll, cursorBg, s)
 		cells = append(cells, cell)
 	}
 	row := strings.Join(cells, sep)
-
-	// Apply horizontal scroll: strip leading hScroll visible columns from row.
-	if hScroll > 0 {
-		row = scrollRight(row, hScroll)
-	}
 
 	return row
 }
@@ -109,10 +102,13 @@ func RenderRow(
 // renderCell returns the styled string for a single column cell.
 // cursorBg is non-nil when the row is the cursor row; each cell then
 // incorporates the cursor background so the highlight spans all columns.
+// hScroll is applied only to ColCode via ansi.TruncateLeft so that ANSI
+// escape codes (e.g. from syntax highlighting in Phase 2) are preserved.
 func renderCell(
 	line git.BlameLine,
 	col Column,
-	cursorBg lipgloss.TerminalColor,
+	hScroll int,
+	cursorBg color.Color,
 	s styles.BlameStyles,
 ) string {
 	switch col.ID {
@@ -121,73 +117,46 @@ func renderCell(
 		if len(hash) > 8 {
 			hash = hash[:8]
 		}
-		return withBg(s.Hash, cursorBg).Render(hash)
+		return withBg(s.Hash, cursorBg).
+			MaxWidth(col.Width).
+			Render(hash)
 	case ColDate:
-		return withBg(s.Date, cursorBg).Render(line.AuthorTime.Format("2006-01-02"))
+		return withBg(s.Date, cursorBg).
+			MaxWidth(col.Width).
+			Render(line.AuthorTime.Format("2006-01-02"))
 	case ColAuthor:
-		return withBg(s.Author, cursorBg).Render(line.Author)
+		return withBg(s.Author, cursorBg).
+			Width(col.Width).
+			MaxWidth(col.Width).
+			Render(line.Author)
 	case ColSummary:
-		return withBg(lipgloss.NewStyle(), cursorBg).Render(line.Summary)
+		return withBg(lipgloss.NewStyle(), cursorBg).
+			MaxWidth(col.Width).
+			Render(line.Summary)
 	case ColLineNum:
 		return withBg(s.LineNum, cursorBg).Render(fmt.Sprintf("%*d", col.Width, line.LineNum))
 	case ColCode:
-		defaultTabWidth := 4
-		content := expandTabs(line.Content, defaultTabWidth)
+		content := ansi.TruncateLeft(line.Content, hScroll, "")
+		padding := max(0, col.Width-lipgloss.Width(content))
+		codeStyle := lipgloss.NewStyle().
+			MaxWidth(col.Width).
+			PaddingRight(padding)
 		if cursorBg != nil {
-			return s.Cursor.Render(content)
+			codeStyle = codeStyle.Inherit(s.Cursor)
 		}
-		return content
+		return codeStyle.Render(content)
 	case ColFilename:
-		return withBg(lipgloss.NewStyle(), cursorBg).Render(line.Filename)
+		return withBg(lipgloss.NewStyle(), cursorBg).
+			MaxWidth(col.Width).
+			Render(line.Filename)
 	}
 	return ""
 }
 
 // withBg returns st with cursorBg applied when non-nil, otherwise st unchanged.
-func withBg(st lipgloss.Style, cursorBg lipgloss.TerminalColor) lipgloss.Style {
+func withBg(style lipgloss.Style, cursorBg color.Color) lipgloss.Style {
 	if cursorBg != nil {
-		return st.Background(cursorBg)
+		return style.Background(cursorBg)
 	}
-	return st
-}
-
-// expandTabs replaces tabs with spaces for consistent width measurement and rendering.
-func expandTabs(s string, tabWidth int) string {
-	return strings.ReplaceAll(s, "\t", strings.Repeat(" ", tabWidth))
-}
-
-// truncatePad truncates or right-pads text to exactly width visible columns.
-// It is ANSI-escape-code aware via lipgloss.Width for width measurement.
-// When cursorBg is non-nil any added padding spaces carry the cursor background
-// colour so the row highlight is unbroken.
-func truncatePad(text string, width int, cursorBg lipgloss.TerminalColor) string {
-	textWidth := lipgloss.Width(text)
-	if textWidth == width {
-		return text
-	}
-	if textWidth > width {
-		return runewidth.Truncate(text, width, "")
-	}
-	// Pad with spaces, optionally styled with the cursor background.
-	pad := strings.Repeat(" ", width-textWidth)
-	if cursorBg != nil {
-		pad = lipgloss.NewStyle().Background(cursorBg).Render(pad)
-	}
-	return text + pad
-}
-
-// scrollRight strips hScroll visible columns from the left of the string.
-func scrollRight(s string, hScroll int) string {
-	runes := []rune(s)
-	skipped := 0
-	start := 0
-	for start < len(runes) {
-		w := runewidth.RuneWidth(runes[start])
-		if skipped+w > hScroll {
-			break
-		}
-		skipped += w
-		start++
-	}
-	return string(runes[start:])
+	return style
 }

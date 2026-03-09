@@ -8,7 +8,7 @@ import (
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/aihnatiuk/git-shame/internal/ui"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func main() {
@@ -45,7 +45,7 @@ func main() {
 	}
 
 	app := ui.NewApp(repoRoot, relFile, displayFile, revision)
-	p := tea.NewProgram(app, tea.WithAltScreen())
+	p := tea.NewProgram(app)
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "shame: "+err.Error())
 		os.Exit(1)

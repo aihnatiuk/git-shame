@@ -1,6 +1,6 @@
 package blame
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // KeyMap defines all keybindings for the blame view.
 type KeyMap struct {
