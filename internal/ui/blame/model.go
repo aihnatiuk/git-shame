@@ -27,6 +27,7 @@ const (
 // HistoryEntry represents one frame in the blame navigation history stack.
 type HistoryEntry struct {
 	File       string
+	RelFile    string // repo-relative path (may differ from File after renames)
 	Revision   string
 	CursorLine int
 }
@@ -54,6 +55,7 @@ type Model struct {
 	hScrollOffset    int // horizontal scroll offset in visible columns
 	maxHScrollOffset int // upper bound for hScrollOffset
 	history          []HistoryEntry
+	statusMessage    string // transient message shown in the status bar; cleared on next key press
 
 	// Context
 	repoRoot string
@@ -77,7 +79,7 @@ type Model struct {
 // New creates a new blame Model ready to load.
 func New(repoRoot, relFile, displayFile, revision string) Model {
 	sp := spinner.New()
-	sp.Spinner = spinner.Dot
+	sp.Spinner = spinner.Points
 
 	return Model{
 		state:    LoadStateLoading,
@@ -114,15 +116,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.lines = msg.Lines
 		m.columns = RecalcWidths(m.columns, m.lines, m.bodyWidth)
 		m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.lines)
-		// Restore cursor if we navigated back.
+		// Restore cursor if we navigated back, otherwise clamp to new line count.
 		if m.pendingCursor > 0 {
 			m.cursor = m.pendingCursor
 			m.pendingCursor = 0
-			if m.cursor >= len(m.lines) {
-				m.cursor = len(m.lines) - 1
-			}
-			m.adjustVerticalScrollOffset()
 		}
+		if m.cursor >= len(m.lines) {
+			m.cursor = max(len(m.lines)-1, 0)
+		}
+		m.adjustVerticalScrollOffset()
 		return m, nil
 
 	case spinner.TickMsg:
@@ -148,6 +150,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 // handleKey processes key events when the view is fully loaded.
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	m.statusMessage = ""
 	switch {
 	case key.Matches(msg, m.keys.Down):
 		m.moveCursor(1)
@@ -186,7 +189,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	title := RenderTitleBar(m.file, m.revision, m.bodyWidth, m.styles)
 	body := RenderBody(&m)
-	status := RenderStatusBar(m.cursor, len(m.lines), m.bodyWidth, m.styles)
+	status := RenderStatusBar(&m)
 
 	content := lipgloss.JoinVertical(lipgloss.Position(0), title, body, status)
 
@@ -278,15 +281,23 @@ func (m *Model) adjustVerticalScrollOffset() {
 }
 
 // navigateToParent re-blames the file at the parent of the current line's commit.
+// It uses the parsed Previous field to determine the parent commit and filename,
+// which handles file renames correctly and avoids a git subprocess on root commits.
 func (m Model) navigateToParent() (Model, tea.Cmd) {
 	if len(m.lines) == 0 {
 		return m, nil
 	}
 	line := m.lines[m.cursor]
 
+	if line.Previous.Hash == "" {
+		m.statusMessage = "No parent commit"
+		return m, nil
+	}
+
 	// Push current state onto the history stack.
 	entry := HistoryEntry{
 		File:       m.file,
+		RelFile:    m.relFile,
 		Revision:   m.revision,
 		CursorLine: m.cursor,
 	}
@@ -296,15 +307,12 @@ func (m Model) navigateToParent() (Model, tea.Cmd) {
 	}
 	m.history = append(history, entry)
 
-	parentRev := line.CommitHash + "^"
-	m.revision = parentRev
+	m.revision = line.Previous.Hash
+	m.relFile = line.Previous.Filename
 	m.state = LoadStateLoading
-	m.lines = nil
-	m.cursor = 0
-	m.vScrollOffset = 0
 
 	return m, tea.Batch(
-		git.RunBlameCmd(m.repoRoot, m.relFile, parentRev),
+		git.RunBlameCmd(m.repoRoot, m.relFile, m.revision),
 		m.spinner.Tick,
 	)
 }
@@ -312,18 +320,17 @@ func (m Model) navigateToParent() (Model, tea.Cmd) {
 // goBack pops the history stack and reloads the previous blame state.
 func (m Model) goBack() (Model, tea.Cmd) {
 	if len(m.history) == 0 {
+		m.statusMessage = "Already at start of history"
 		return m, nil
 	}
 	entry := m.history[len(m.history)-1]
 	m.history = m.history[:len(m.history)-1]
 
 	m.file = entry.File
+	m.relFile = entry.RelFile
 	m.revision = entry.Revision
 	m.pendingCursor = entry.CursorLine
 	m.state = LoadStateLoading
-	m.lines = nil
-	m.cursor = 0
-	m.vScrollOffset = 0
 
 	return m, tea.Batch(
 		git.RunBlameCmd(m.repoRoot, m.relFile, m.revision),

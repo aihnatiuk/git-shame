@@ -10,42 +10,49 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"charm.land/lipgloss/v2"
-	"github.com/mattn/go-runewidth"
 )
 
 // RenderTitleBar renders the top bar showing the current file and revision.
 func RenderTitleBar(file, revision string, width int, s styles.BlameStyles) string {
+	withWidth := s.TitleBar.Width(width)
+	contentWidth := width - withWidth.GetHorizontalPadding()
 	rev := revision
 	if rev == "" {
 		rev = "HEAD"
 	}
-	title := fmt.Sprintf("  %s @ %s  ", file, rev)
-	// Pad to full terminal width so the background fills the bar.
-	pad := width - runewidth.StringWidth(title)
-	if pad > 0 {
-		title += strings.Repeat(" ", pad)
-	}
-	return s.TitleBar.Render(title)
+	title := fmt.Sprintf("%s @ %s", file, rev)
+
+	return withWidth.Render(ansi.Truncate(title, contentWidth, "…"))
 }
 
 // RenderStatusBar renders the bottom bar with cursor position info.
-func RenderStatusBar(cursor, total, width int, s styles.BlameStyles) string {
-	if total == 0 {
-		return s.StatusBar.Render(strings.Repeat(" ", width))
-	}
-	pct := (cursor + 1) * 100 / total
-	status := fmt.Sprintf("  %d/%d  %d%%  ", cursor+1, total, pct)
-	pad := max(width-runewidth.StringWidth(status), 0)
-	line := strings.Repeat(" ", pad) + status
+// When statusMsg is non-empty it is shown instead of the position counter.
+func RenderStatusBar(m *Model) string {
+	s := m.styles
+	withWidth := s.StatusBar.Width(m.bodyWidth)
+	contentWidth := m.bodyWidth - withWidth.GetHorizontalPadding()
 
-	return s.StatusBar.Render(line)
+	if m.state == LoadStateLoading {
+		return withWidth.Render(m.spinner.View() + " Loading blame")
+	}
+	if m.statusMessage != "" {
+		return withWidth.Render(ansi.Truncate(m.statusMessage, contentWidth, "…"))
+	}
+	total := len(m.lines)
+	if total == 0 {
+		return s.StatusBar.Render(" ")
+	}
+
+	pct := (m.cursor + 1) * 100 / total
+	status := fmt.Sprintf("%d/%d  %d%%", m.cursor+1, total, pct)
+
+	return withWidth.
+		AlignHorizontal(lipgloss.Position(1)).
+		Render(status)
 }
 
 // RenderBody renders the visible rows of the blame table.
 func RenderBody(m *Model) string {
-	if m.state == LoadStateLoading {
-		return m.spinner.View() + "  Loading blame…"
-	}
 	if m.state == LoadStateError {
 		return m.styles.Error.Render("Error: " + m.loadErr.Error())
 	}
@@ -57,9 +64,11 @@ func RenderBody(m *Model) string {
 	end := min(m.vScrollOffset+m.bodyHeight, len(m.lines))
 
 	rowsList := make([]string, 0, end-start)
+	rowStyle := m.styles.Row.MaxWidth(m.bodyWidth)
 	for i := start; i < end; i++ {
-		row := RenderRow(m.lines[i], m.columns, i == m.cursor, m.hScrollOffset, m.styles, m.bodyWidth)
-		rowsList = append(rowsList, row)
+		isActiveRow := i == m.cursor
+		row := RenderRow(m.lines[i], m.columns, isActiveRow, m.hScrollOffset, m.styles)
+		rowsList = append(rowsList, rowStyle.Render(row))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Position(0), rowsList...)
@@ -74,16 +83,15 @@ func RenderBody(m *Model) string {
 func RenderRow(
 	line git.BlameLine,
 	cols []Column,
-	cursor bool,
+	isActive bool,
 	hScroll int,
 	s styles.BlameStyles,
-	rowWidth int,
 ) string {
-	var cursorBg color.Color
+	var activeBg color.Color
 	sep := " "
-	if cursor {
-		cursorBg = s.Cursor.GetBackground()
-		sep = lipgloss.NewStyle().Background(cursorBg).Render(sep)
+	if isActive {
+		activeBg = s.Cursor.GetBackground()
+		sep = lipgloss.NewStyle().Background(activeBg).Render(sep)
 	}
 
 	var cells []string
@@ -91,7 +99,7 @@ func RenderRow(
 		if !col.Visible || col.Width == 0 {
 			continue
 		}
-		cell := renderCell(line, col, hScroll, cursorBg, s)
+		cell := renderCell(line, col, hScroll, activeBg, s)
 		cells = append(cells, cell)
 	}
 	row := strings.Join(cells, sep)
@@ -108,7 +116,7 @@ func renderCell(
 	line git.BlameLine,
 	col Column,
 	hScroll int,
-	cursorBg color.Color,
+	activeBg color.Color,
 	s styles.BlameStyles,
 ) string {
 	switch col.ID {
@@ -117,36 +125,36 @@ func renderCell(
 		if len(hash) > 8 {
 			hash = hash[:8]
 		}
-		return withBg(s.Hash, cursorBg).
+		return withBg(s.Hash, activeBg).
 			MaxWidth(col.Width).
 			Render(hash)
 	case ColDate:
-		return withBg(s.Date, cursorBg).
+		return withBg(s.Date, activeBg).
 			MaxWidth(col.Width).
 			Render(line.AuthorTime.Format("2006-01-02"))
 	case ColAuthor:
-		return withBg(s.Author, cursorBg).
+		return withBg(s.Author, activeBg).
 			Width(col.Width).
 			MaxWidth(col.Width).
 			Render(line.Author)
 	case ColSummary:
-		return withBg(lipgloss.NewStyle(), cursorBg).
+		return withBg(lipgloss.NewStyle(), activeBg).
 			MaxWidth(col.Width).
 			Render(line.Summary)
 	case ColLineNum:
-		return withBg(s.LineNum, cursorBg).Render(fmt.Sprintf("%*d", col.Width, line.LineNum))
+		return withBg(s.LineNum, activeBg).Render(fmt.Sprintf("%*d", col.Width, line.LineNum))
 	case ColCode:
 		content := ansi.TruncateLeft(line.Content, hScroll, "")
 		padding := max(0, col.Width-lipgloss.Width(content))
 		codeStyle := lipgloss.NewStyle().
 			MaxWidth(col.Width).
 			PaddingRight(padding)
-		if cursorBg != nil {
+		if activeBg != nil {
 			codeStyle = codeStyle.Inherit(s.Cursor)
 		}
 		return codeStyle.Render(content)
 	case ColFilename:
-		return withBg(lipgloss.NewStyle(), cursorBg).
+		return withBg(lipgloss.NewStyle(), activeBg).
 			MaxWidth(col.Width).
 			Render(line.Filename)
 	}

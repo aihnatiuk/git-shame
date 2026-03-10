@@ -93,8 +93,7 @@ func parsePorcelain(data []byte) ([]BlameLine, error) {
 
 		// Content line: always starts with a literal TAB.
 		if line[0] == '\t' {
-			// Later I will make this configurable, but for now replace tabs with 4 spaces to avoid rendering issues.
-			content := strings.ReplaceAll(string(line[1:]), "\t", "    ")
+			content := string(line[1:])
 			if current != nil {
 				result = append(result, BlameLine{
 					CommitHash:  current.Hash,
@@ -151,7 +150,13 @@ func parsePorcelain(data []byte) ([]BlameLine, error) {
 			case bytes.HasPrefix(kv, []byte("filename ")):
 				current.Filename = string(kv[9:])
 			case bytes.HasPrefix(kv, []byte("previous ")):
-				current.Previous = string(kv[9:])
+				parts := bytes.Fields(kv[9:])
+				if len(parts) >= 2 {
+					current.Previous = PreviousCommit{
+						Hash:     string(parts[0]),
+						Filename: string(parts[1]),
+					}
+				}
 			}
 		}
 		i++

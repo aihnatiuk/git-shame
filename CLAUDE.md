@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Build
-go build -o shame .
+go build -o shame.exe .
 
 # Run
 ./shame <file> [revision]
