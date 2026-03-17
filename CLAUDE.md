@@ -21,6 +21,15 @@ go test ./internal/git/...
 go test -race ./...
 ```
 
+## Logging
+
+Use `log.Printf` / `log.Println` from the standard `log` package. Set `DEBUG=1` to write logs to `debug.log` (truncated on each run); without it logs are discarded.
+
+```bash
+DEBUG=1 ./shame <file> [revision]
+tail -f debug.log
+```
+
 ## Architecture
 
 `shame` is a Bubble Tea TUI. The model hierarchy is:

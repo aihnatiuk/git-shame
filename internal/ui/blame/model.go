@@ -1,10 +1,6 @@
 package blame
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
 
@@ -203,15 +199,6 @@ func (m Model) View() tea.View {
 	view := tea.NewView(output)
 	view.AltScreen = true
 
-	path, err := filepath.Abs("debug-screen.txt")
-	if err == nil {
-		file, err := os.Create(path)
-		if err == nil {
-			defer file.Close()
-			file.WriteString(view.Content)
-		}
-	}
-
 	return view
 }
 
@@ -227,20 +214,6 @@ func (m Model) WithSize(w, h int) Model {
 	m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.lines)
 	m.hScrollOffset = min(m.hScrollOffset, m.maxHScrollOffset)
 	m.adjustVerticalScrollOffset()
-
-	f, err := filepath.Abs("debug-columns.txt")
-	if err == nil {
-		file, err := os.Create(f)
-		if err == nil {
-			defer file.Close()
-			fmt.Fprintf(file, "terminal H:%d W:%d\n", h, w)
-			fmt.Fprintf(file, "bodyHeight: %d\n", m.bodyHeight)
-			fmt.Fprintf(file, "m.height: %d\n", m.terminalHeight)
-			for _, col := range m.columns {
-				fmt.Fprintf(file, "%s: width=%d\n", col.Label, col.Width)
-			}
-		}
-	}
 
 	return m
 }

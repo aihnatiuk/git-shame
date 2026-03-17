@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -12,6 +14,19 @@ import (
 )
 
 func main() {
+	if len(os.Getenv("DEBUG")) > 0 {
+		f, err := os.OpenFile("debug.log", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "shame: "+err.Error())
+			os.Exit(1)
+		}
+		defer f.Close()
+		log.SetOutput(f)
+		log.SetPrefix("shame ")
+	} else {
+		log.SetOutput(io.Discard)
+	}
+
 	if len(os.Args) < 2 {
 		fmt.Fprintln(os.Stderr, "usage: shame <file> [revision]")
 		os.Exit(1)
