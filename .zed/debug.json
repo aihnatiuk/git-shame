@@ -1,0 +1,15 @@
+// Project-local debug tasks
+//
+// For more documentation on how to configure debug tasks,
+// see: https://zed.dev/docs/debugger
+[
+  {
+    "adapter": "Delve",
+    "label": "Debug git-shame (attach)",
+    "request": "attach",
+    "mode": "remote",
+    "tcp_connection": {
+      "port": 7777,
+    },
+  },
+]
