@@ -16,11 +16,10 @@ import (
 func RenderTitleBar(file, revision string, width int, s styles.BlameStyles) string {
 	withWidth := s.TitleBar.Width(width)
 	contentWidth := width - withWidth.GetHorizontalPadding()
-	rev := revision
-	if rev == "" {
-		rev = "HEAD"
+	if revision == "" {
+		revision = "HEAD"
 	}
-	title := fmt.Sprintf("%s @ %s", file, rev)
+	title := fmt.Sprintf("%s @ %s", file, revision)
 
 	return withWidth.Render(ansi.Truncate(title, contentWidth, "…"))
 }
@@ -161,7 +160,7 @@ func renderCell(
 	return ""
 }
 
-// withBg returns st with cursorBg applied when non-nil, otherwise st unchanged.
+// withBg returns style with cursorBg applied when non-nil, otherwise style unchanged.
 func withBg(style lipgloss.Style, cursorBg color.Color) lipgloss.Style {
 	if cursorBg != nil {
 		return style.Background(cursorBg)
