@@ -13,7 +13,7 @@
 │   │   ├── blame/        # The Blame view
 │   │   ├── diff/         # The Diff view (not implemented)
 │   │   └── colmenu/      # Column toggle popup (not implemented)
-│   ├── highlight/        # Chroma syntax highlighting logic (not implemented)
+│   ├── highlight/        # Chroma syntax highlighting logic
 │   └── config/           # YAML config & XDG path handling (not implemented)
 ```
 
@@ -25,6 +25,7 @@ require (
 	charm.land/bubbles/v2 v2.0.0
 	charm.land/bubbletea/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.0.0
+	github.com/alecthomas/chroma/v2 v2.23.1
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/mattn/go-runewidth v0.0.21
 )
@@ -69,15 +70,16 @@ Use the following guides to get additional context on specific topics of the pro
 
 ## Implementation phases
 **Phase 1** (done): blame view, parent/child commit navigation using history stack, spinner during async blame loading, column system with dynamic width calculation, basic keybindings (`j`/`k`, `ctrl-d`/`ctrl-u`, `g`/`G`, `,`, `<`), horizontal scrolling of code column.
-**Phase 2**:
+**Phase 2** (in progress):
   - diff view (`internal/ui/diff/`)
   - `git show` parser
-  - Chroma highlighting in blame
+  - ~~Chroma highlighting in blame~~ (done; default theme: `github-dark`, see `internal/highlight/`)
   - Whitespace indicators in code column, `·` for space, `→` for tab, `⏎` for EOL
 **Phase 3**:
   - Column toggle popup (`internal/ui/colmenu/`)
 **Phase 4**: YAML config (`internal/config/`)
   - XDG path `~/.config/shame/config.yaml`
+  - Configurable syntax highlight theme (key: `highlight.theme`, default: `github-dark`)
 **Phase 5**:
   - `/` and `?` vim-like search
   - filename/summary, commiter columns

@@ -66,7 +66,13 @@ func RenderBody(m *Model) string {
 	rowStyle := m.styles.Row.MaxWidth(m.bodyWidth)
 	for i := start; i < end; i++ {
 		isActiveRow := i == m.cursor
-		row := RenderRow(m.lines[i], m.columns, isActiveRow, m.hScrollOffset, m.styles)
+		var highlighted string
+		if i < len(m.highlightedLines) {
+			highlighted = m.highlightedLines[i]
+		} else {
+			highlighted = m.lines[i].Content
+		}
+		row := RenderRow(m.lines[i], highlighted, m.columns, isActiveRow, m.hScrollOffset, m.styles)
 		rowsList = append(rowsList, rowStyle.Render(row))
 	}
 
@@ -81,6 +87,7 @@ func RenderBody(m *Model) string {
 // that metadata columns remain fixed while code scrolls.
 func RenderRow(
 	line git.BlameLine,
+	highlightedContent string,
 	cols []Column,
 	isActive bool,
 	hScroll int,
@@ -98,7 +105,7 @@ func RenderRow(
 		if !col.Visible || col.Width == 0 {
 			continue
 		}
-		cell := renderCell(line, col, hScroll, activeBg, s)
+		cell := renderCell(line, highlightedContent, col, hScroll, activeBg, s)
 		cells = append(cells, cell)
 	}
 	row := strings.Join(cells, sep)
@@ -113,6 +120,7 @@ func RenderRow(
 // escape codes (e.g. from syntax highlighting in Phase 2) are preserved.
 func renderCell(
 	line git.BlameLine,
+	highlightedContent string,
 	col Column,
 	hScroll int,
 	activeBg color.Color,
@@ -143,13 +151,14 @@ func renderCell(
 	case ColLineNum:
 		return withBg(s.LineNum, activeBg).Render(fmt.Sprintf("%*d", col.Width, line.LineNum))
 	case ColCode:
-		content := ansi.TruncateLeft(line.Content, hScroll, "")
+		content := ansi.TruncateLeft(highlightedContent, hScroll, "")
 		padding := max(0, col.Width-lipgloss.Width(content))
 		codeStyle := lipgloss.NewStyle().
 			MaxWidth(col.Width).
 			PaddingRight(padding)
 		if activeBg != nil {
-			codeStyle = codeStyle.Inherit(s.Cursor)
+			content = paintBackground(content, activeBg)
+			codeStyle = codeStyle.Background(activeBg)
 		}
 		return codeStyle.Render(content)
 	case ColFilename:
@@ -158,6 +167,16 @@ func renderCell(
 			Render(line.Filename)
 	}
 	return ""
+}
+
+// paintBackground re-injects the cursor background SGR after every ANSI reset
+// sequence in s. This is necessary because Chroma emits \x1b[m between tokens,
+// which clears any background color set by lipgloss before the content.
+func paintBackground(s string, bg color.Color) string {
+	bgSGR := ansi.Style{}.BackgroundColor(bg).String()
+	s = strings.ReplaceAll(s, "\x1b[m", "\x1b[m"+bgSGR)
+	s = strings.ReplaceAll(s, "\x1b[0m", "\x1b[0m"+bgSGR)
+	return s
 }
 
 // withBg returns style with cursorBg applied when non-nil, otherwise style unchanged.

@@ -2,6 +2,7 @@ package blame
 
 import (
 	"github.com/aihnatiuk/git-shame/internal/git"
+	"github.com/aihnatiuk/git-shame/internal/highlight"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
 
 	"charm.land/bubbles/v2/key"
@@ -40,9 +41,10 @@ const maxHistory = 50
 // All fields are value types to satisfy Bubble Tea's immutability contract.
 type Model struct {
 	// Git data
-	lines   []git.BlameLine
-	loadErr error
-	state   LoadState
+	lines            []git.BlameLine
+	highlightedLines []string // ANSI-escaped lines produced by Chroma; same length as lines
+	loadErr          error
+	state            LoadState
 
 	// Navigation
 	cursor           int // current line index (0-based)
@@ -110,6 +112,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 		m.state = LoadStateLoaded
 		m.lines = msg.Lines
+		contents := make([]string, len(msg.Lines))
+		for i, l := range msg.Lines {
+			contents[i] = l.Content
+		}
+		m.highlightedLines = highlight.HighlightLines(m.relFile, contents)
 		m.columns = RecalcWidths(m.columns, m.lines, m.bodyWidth)
 		m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.lines)
 		// Restore cursor if we navigated back, otherwise clamp to new line count.

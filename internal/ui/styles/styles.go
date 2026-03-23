@@ -33,8 +33,7 @@ func Default() BlameStyles {
 			Padding(0, 1, 0, 1),
 
 		Cursor: lipgloss.NewStyle().
-			Background(lipgloss.Color("24")).
-			Foreground(lipgloss.Color("255")),
+			Background(lipgloss.Color("24")),
 
 		Hash: lipgloss.NewStyle().
 			Foreground(lipgloss.Color("214")),

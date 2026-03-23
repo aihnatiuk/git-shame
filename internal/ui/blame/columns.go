@@ -117,9 +117,6 @@ func RecalcWidths(cols []Column, lines []git.BlameLine, termWidth int) []Column 
 // Code column: the number of columns by which the longest line exceeds the
 // visible code column width. A terminal resize or new blame load must call
 // this again because both the line content and the code column width can change.
-//
-// For Phase 2, replace runewidth.StringWidth with ansi.StringWidth once
-// line.Content carries pre-computed Chroma ANSI sequences.
 func CalcMaxHScroll(cols []Column, lines []git.BlameLine) int {
 	codeWidth := 0
 	for _, col := range cols {
