@@ -53,7 +53,11 @@ All lipgloss styles live in `BlameStyles` (returned by `styles.Default()`) and `
 - Always use lipgloss v2 API for all styling, don't implement manual solutions for padding, alignment, truncation, etc., unless it's a very specific case that can't be solved with lipgloss.
 - Truncation must be ansi-aware and use `ansi.Truncate`, `ansi.TruncateLeft` from `github.com/charmbracelet/x/ansi` to avoid cutting off wide characters or breaking ANSI escape codes.
 - Aim for a clean separation of concerns and modular architecture, use design patterns where appropriate.
-- Write clear, concise, and well-documented code. Don't overuse comments, use them to explain **non-obvious logic** and decisions. Documentation should not go into implementation details, but rather explain the purpose and behavior of functions, types, and packages. **Don't ever mention in the comments or documentation that something is not working but is going to be implemented later, don't mention implementation phases**.
+- Write clear, concise, and well-documented code. Documentation should not go into implementation details, but rather explain the purpose and behavior of functions, types, and packages.
+- Don't overuse comments, use them to explain **non-obvious logic**. **Don't ever mention in code**:
+  1. That something is not working and/or is going to be implemented later.
+  2. Implementation phases.
+  3. That something was updated from the previous version of the project after I asked you to do so. For example, if a function rendered output with a background color and I asked you to change it, don't comment like "explicitly skip background color" or anything like that in code.
 - Performance is important and is a key aspect of the project.
 
 ## Commands
