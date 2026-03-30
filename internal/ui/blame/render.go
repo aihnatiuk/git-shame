@@ -77,7 +77,9 @@ func RenderBody(m *Model) string {
 		rowsList = append(rowsList, rowStyle.Render(row))
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Position(0), rowsList...)
+	return lipgloss.NewStyle().Height(m.bodyHeight).Render(
+		lipgloss.JoinVertical(lipgloss.Position(0), rowsList...),
+	)
 }
 
 // RenderRow renders a single blame line as a formatted row string.

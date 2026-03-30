@@ -58,7 +58,9 @@ func RenderBody(m *Model) string {
 		rows = append(rows, row)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Position(0), rows...)
+	return lipgloss.NewStyle().Height(m.bodyHeight).Render(
+		lipgloss.JoinVertical(lipgloss.Position(0), rows...),
+	)
 }
 
 // RenderStatusBar renders the bottom bar showing diff stats and scroll position.
