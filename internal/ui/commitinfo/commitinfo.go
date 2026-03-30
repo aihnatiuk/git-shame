@@ -43,7 +43,7 @@ func Render(info git.CommitInfo, maxBodyLines int, width int, s styles.DiffStyle
 	sb.WriteByte('\n')
 
 	// Subject line (4-space indent)
-	subject := "    " + ansi.Truncate(info.Subject, max(0, width-4), "…")
+	subject := "    " + ansi.Truncate(info.Subject, max(0, width-4), styles.Ellipsis)
 	sb.WriteString(subject)
 	sb.WriteByte('\n')
 
@@ -57,7 +57,7 @@ func Render(info git.CommitInfo, maxBodyLines int, width int, s styles.DiffStyle
 		}
 		for _, bl := range bodyLines {
 			sb.WriteString("    ")
-			sb.WriteString(ansi.Truncate(bl, max(0, width-4), "…"))
+			sb.WriteString(ansi.Truncate(bl, max(0, width-4), styles.Ellipsis))
 			sb.WriteByte('\n')
 		}
 		if truncated {

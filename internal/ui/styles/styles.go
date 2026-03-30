@@ -2,6 +2,9 @@ package styles
 
 import "charm.land/lipgloss/v2"
 
+// Ellipsis is the truncation indicator used when text is clipped to fit a column or region.
+const Ellipsis = "…"
+
 // DiffStyles holds all lipgloss styles used by the diff view.
 type DiffStyles struct {
 	TitleBar  lipgloss.Style

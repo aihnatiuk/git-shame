@@ -17,7 +17,7 @@ func RenderTitleBar(relFile, hash string, width int, s styles.DiffStyles) string
 	withWidth := s.TitleBar.Width(width)
 	contentWidth := width - withWidth.GetHorizontalPadding()
 	title := fmt.Sprintf("%s @ %s", relFile, hash)
-	return withWidth.Render(ansi.Truncate(title, contentWidth, "…"))
+	return withWidth.Render(ansi.Truncate(title, contentWidth, styles.Ellipsis))
 }
 
 // RenderHeader renders the commit metadata header. During loading it shows the
@@ -98,13 +98,13 @@ func RenderStatusBar(m *Model) string {
 func renderDiffLine(dl git.DiffLine, highlighted string, lineNumWidth, contentWidth int, s styles.DiffStyles) string {
 	if dl.Type == git.DiffHunkHeader {
 		return s.HunkHeader.Width(lineNumWidth*2 + 4 + contentWidth).Render(
-			ansi.Truncate(dl.Content, lineNumWidth*2+4+contentWidth, "…"),
+			ansi.Truncate(dl.Content, lineNumWidth*2+4+contentWidth, styles.Ellipsis),
 		)
 	}
 
 	if dl.Type == git.DiffNoNewline {
 		return s.DiffContext.Render(
-			ansi.Truncate(dl.Content, lineNumWidth*2+4+contentWidth, "…"),
+			ansi.Truncate(dl.Content, lineNumWidth*2+4+contentWidth, styles.Ellipsis),
 		)
 	}
 
@@ -118,21 +118,21 @@ func renderDiffLine(dl git.DiffLine, highlighted string, lineNumWidth, contentWi
 		newNumStyle = s.DiffAddedPrefix
 		prefix = s.DiffAddedPrefix.Render("+")
 		renderedContent = s.DiffContext.Width(contentWidth).MaxWidth(contentWidth).
-			Render(ansi.Truncate(highlighted, contentWidth, "…"))
+			Render(ansi.Truncate(highlighted, contentWidth, styles.Ellipsis))
 
 	case git.DiffRemoved:
 		oldNumStyle = s.DiffRemovedPrefix
 		newNumStyle = s.OldLineNum
 		prefix = s.DiffRemovedPrefix.Render("-")
 		renderedContent = s.OldLineNum.Width(contentWidth).MaxWidth(contentWidth).
-			Render(ansi.Truncate(dl.Content, contentWidth, "…"))
+			Render(ansi.Truncate(dl.Content, contentWidth, styles.Ellipsis))
 
 	default: // DiffContext
 		oldNumStyle = s.OldLineNum
 		newNumStyle = s.NewLineNum
 		prefix = " "
 		renderedContent = s.DiffContext.Width(contentWidth).MaxWidth(contentWidth).
-			Render(ansi.Truncate(highlighted, contentWidth, "…"))
+			Render(ansi.Truncate(highlighted, contentWidth, styles.Ellipsis))
 	}
 
 	oldNum := formatLineNum(dl.OldLine, lineNumWidth, oldNumStyle)

@@ -22,7 +22,7 @@ func RenderTitleBar(file, revision string, width int, s styles.BlameStyles) stri
 	}
 	title := fmt.Sprintf("%s @ %s", file, revision)
 
-	return withWidth.Render(ansi.Truncate(title, contentWidth, "…"))
+	return withWidth.Render(ansi.Truncate(title, contentWidth, styles.Ellipsis))
 }
 
 // RenderStatusBar renders the bottom bar with cursor position info.
@@ -36,7 +36,7 @@ func RenderStatusBar(m *Model) string {
 		return withWidth.Render(m.spinner.View() + " Loading blame")
 	}
 	if m.statusMessage != "" {
-		return withWidth.Render(ansi.Truncate(m.statusMessage, contentWidth, "…"))
+		return withWidth.Render(ansi.Truncate(m.statusMessage, contentWidth, styles.Ellipsis))
 	}
 	total := len(m.lines)
 	if total == 0 {
@@ -136,19 +136,21 @@ func renderCell(
 			hash = hash[:8]
 		}
 		return withBg(s.Hash, activeBg).
+			Inline(true).
 			MaxWidth(col.Width).
 			Render(hash)
 	case ColDate:
 		return withBg(s.Date, activeBg).
+			Inline(true).
 			MaxWidth(col.Width).
 			Render(line.AuthorTime.Format("2006-01-02"))
 	case ColAuthor:
 		return withBg(s.Author, activeBg).
 			Width(col.Width).
-			MaxWidth(col.Width).
-			Render(line.Author)
+			Render(ansi.Truncate(line.Author, col.Width, styles.Ellipsis))
 	case ColSummary:
 		return withBg(lipgloss.NewStyle(), activeBg).
+			Inline(true).
 			MaxWidth(col.Width).
 			Render(line.Summary)
 	case ColLineNum:
@@ -166,6 +168,7 @@ func renderCell(
 		return codeStyle.Render(content)
 	case ColFilename:
 		return withBg(lipgloss.NewStyle(), activeBg).
+			Inline(true).
 			MaxWidth(col.Width).
 			Render(line.Filename)
 	}

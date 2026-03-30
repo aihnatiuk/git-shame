@@ -51,7 +51,7 @@ All lipgloss styles live in `BlameStyles` (returned by `styles.Default()`) and `
 - Width measurement **must** use `runewidth.StringWidth()` or `lipgloss.Width()`, never `len()`.
 - Use `log.Printf` / `log.Println` from the standard `log` package. Logs are written to `debug.log` (truncated on each run) if `DEBUG=1` env variable is set when running the app.
 - Always use lipgloss v2 API for all styling, don't implement manual solutions for padding, alignment, truncation, etc., unless it's a very specific case that can't be solved with lipgloss.
-- Truncation must be ansi-aware and use `ansi.Truncate`, `ansi.TruncateLeft` from `github.com/charmbracelet/x/ansi` to avoid cutting off wide characters or breaking ANSI escape codes.
+- Truncation must be ansi-aware and use `ansi.Truncate`, `ansi.TruncateLeft` from `github.com/charmbracelet/x/ansi` to avoid cutting off wide characters or breaking ANSI escape codes. Always pass `styles.Ellipsis` as the truncation tail — never inline the `"…"` literal.
 - Aim for a clean separation of concerns and modular architecture, use design patterns where appropriate.
 - Write clear, concise, and well-documented code. Documentation should not go into implementation details, but rather explain the purpose and behavior of functions, types, and packages.
 - Don't overuse comments, use them to explain **non-obvious logic**. **Don't ever mention in code**:
