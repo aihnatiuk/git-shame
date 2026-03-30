@@ -9,7 +9,8 @@ If the required keybinding is not listed here, follow the principle of least sur
 | `g` / `G` | First / last line |
 | `,` | Navigate to parent commit (re-blame) |
 | `<` | Go back in blame history |
-| `Enter` | Open diff view for current line's commit |
+| `d` | Open full-screen diff for current line's commit |
+| `Enter` | Open commit info (changed files + diff preview) |
 | `q` | Quit (from blame) / return to blame (from diff) |
 | `/` | Start code search |
 | `n` / `N` | Next / previous search match |

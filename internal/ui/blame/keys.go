@@ -4,18 +4,19 @@ import "charm.land/bubbles/v2/key"
 
 // KeyMap defines all keybindings for the blame view.
 type KeyMap struct {
-	Up           key.Binding
-	Down         key.Binding
-	HalfPageUp   key.Binding
-	HalfPageDown key.Binding
-	GoToTop      key.Binding
-	GoToBottom   key.Binding
-	Parent       key.Binding // navigate to parent commit
-	Back         key.Binding // go back in history
-	OpenDiff     key.Binding // open diff view
-	Quit         key.Binding
-	ScrollLeft   key.Binding
-	ScrollRight  key.Binding
+	Up             key.Binding
+	Down           key.Binding
+	HalfPageUp     key.Binding
+	HalfPageDown   key.Binding
+	GoToTop        key.Binding
+	GoToBottom     key.Binding
+	Parent         key.Binding // navigate to parent commit
+	Back           key.Binding // go back in history
+	OpenDiff       key.Binding // open full-screen diff view
+	OpenCommitInfo key.Binding // open detailed commit info (future)
+	Quit           key.Binding
+	ScrollLeft     key.Binding
+	ScrollRight    key.Binding
 }
 
 // DefaultKeyMap returns the default keybindings.
@@ -54,8 +55,12 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("<", "go back"),
 		),
 		OpenDiff: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "open diff"),
+		),
+		OpenCommitInfo: key.NewBinding(
 			key.WithKeys("enter"),
-			key.WithHelp("enter", "open diff"),
+			key.WithHelp("enter", "open commit info"),
 		),
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),

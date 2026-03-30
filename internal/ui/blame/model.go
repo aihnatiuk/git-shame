@@ -29,9 +29,11 @@ type HistoryEntry struct {
 	CursorLine int
 }
 
-// OpenDiffMsg is sent to the parent App when the user presses Enter.
+// OpenDiffMsg is sent to the parent App when the user opens the diff view.
 type OpenDiffMsg struct {
 	CommitHash string
+	RepoRoot   string
+	RelFile    string
 }
 
 // maxHistory is the maximum number of entries kept in the history stack.
@@ -180,7 +182,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.OpenDiff):
 		if len(m.lines) > 0 {
 			hash := m.lines[m.cursor].CommitHash
-			return m, func() tea.Msg { return OpenDiffMsg{CommitHash: hash} }
+			return m, func() tea.Msg {
+				return OpenDiffMsg{CommitHash: hash, RepoRoot: m.repoRoot, RelFile: m.relFile}
+			}
 		}
 	case key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
@@ -224,6 +228,12 @@ func (m Model) WithSize(w, h int) Model {
 
 	return m
 }
+
+// TerminalWidth returns the current terminal width.
+func (m Model) TerminalWidth() int { return m.terminalWidth }
+
+// TerminalHeight returns the current terminal height.
+func (m Model) TerminalHeight() int { return m.terminalHeight }
 
 // moveCursor moves the cursor by delta lines and keeps it in bounds.
 func (m *Model) moveCursor(delta int) {

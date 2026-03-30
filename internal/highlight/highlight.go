@@ -4,12 +4,14 @@ package highlight
 
 import (
 	"bytes"
+	"image/color"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/lexers"
 	chromastyles "github.com/alecthomas/chroma/v2/styles"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // DefaultTheme is the Chroma style used for syntax highlighting.
@@ -26,6 +28,16 @@ func HighlightLines(filename string, lines []string) []string {
 		return lines
 	}
 	return result
+}
+
+// PaintBackground re-injects bg SGR after every \x1b[m / \x1b[0m in s.
+// This is necessary because Chroma emits reset sequences between tokens that
+// would otherwise clear any background color applied before the content.
+func PaintBackground(s string, bg color.Color) string {
+	bgSGR := ansi.Style{}.BackgroundColor(bg).String()
+	s = strings.ReplaceAll(s, "\x1b[m", "\x1b[m"+bgSGR)
+	s = strings.ReplaceAll(s, "\x1b[0m", "\x1b[0m"+bgSGR)
+	return s
 }
 
 func highlightLines(filename string, lines []string) ([]string, error) {

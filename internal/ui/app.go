@@ -3,6 +3,7 @@ package ui
 import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/aihnatiuk/git-shame/internal/ui/blame"
+	"github.com/aihnatiuk/git-shame/internal/ui/diff"
 )
 
 // ViewID identifies which view is currently active.
@@ -10,7 +11,7 @@ type ViewID int
 
 const (
 	ViewBlame ViewID = iota
-	// ViewDiff is added in Phase 2.
+	ViewDiff
 )
 
 // App is the root Bubble Tea model. It owns view switching and forwards
@@ -18,6 +19,7 @@ const (
 type App struct {
 	activeView ViewID
 	blameModel blame.Model
+	diffModel  diff.Model
 }
 
 // NewApp constructs the root App model.
@@ -39,6 +41,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		a.blameModel = a.blameModel.WithSize(msg.Width, msg.Height)
+		a.diffModel = a.diffModel.WithSize(msg.Width, msg.Height)
 		return a, nil
 
 	case tea.KeyMsg:
@@ -48,9 +51,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case blame.OpenDiffMsg:
-		// Phase 2: initialize and switch to diff view.
-		// For now, no-op.
-		_ = msg
+		a.diffModel = diff.New(msg.RepoRoot, msg.RelFile, msg.CommitHash).
+			WithSize(a.blameModel.TerminalWidth(), a.blameModel.TerminalHeight())
+		a.activeView = ViewDiff
+		return a, a.diffModel.Init()
+
+	case diff.CloseDiffMsg:
+		a.activeView = ViewBlame
 		return a, nil
 	}
 
@@ -59,6 +66,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ViewBlame:
 		newBlame, cmd := a.blameModel.Update(msg)
 		a.blameModel = newBlame
+		return a, cmd
+	case ViewDiff:
+		newDiff, cmd := a.diffModel.Update(msg)
+		a.diffModel = newDiff
 		return a, cmd
 	}
 
@@ -70,6 +81,8 @@ func (a App) View() tea.View {
 	switch a.activeView {
 	case ViewBlame:
 		return a.blameModel.View()
+	case ViewDiff:
+		return a.diffModel.View()
 	}
 	return tea.NewView("")
 }

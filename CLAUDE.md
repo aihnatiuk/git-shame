@@ -6,12 +6,13 @@
 ```text
 ├── main.go               # Entry point, CLI flag/arg parsing
 ├── internal/
-│   ├── git/              # Git CLI wrappers & porcelain/show parsers (partially implemented)
+│   ├── git/              # Git CLI wrappers, blame/show parsers
 │   ├── ui/               # Bubble Tea components
 │   │   ├── app.go        # Root model & view switcher
-│   │   ├── styles/       # Lipgloss theme definitions
+│   │   ├── styles/       # Lipgloss theme definitions (BlameStyles, DiffStyles)
 │   │   ├── blame/        # The Blame view
-│   │   ├── diff/         # The Diff view (not implemented)
+│   │   ├── diff/         # The Diff view
+│   │   ├── commitinfo/   # Reusable commit metadata header renderer
 │   │   └── colmenu/      # Column toggle popup (not implemented)
 │   ├── highlight/        # Chroma syntax highlighting logic
 │   └── config/           # YAML config & XDG path handling (not implemented)
@@ -35,7 +36,7 @@ require (
 ### Key data flow
 1. `main.go` resolves the file to an absolute path, finds the repo root via `git rev-parse --show-toplevel`, computes the repo-relative path, and passes all four strings into `ui.NewApp`.
 2. `blame.Model.Init()` dispatches `git.RunBlameCmd` (async goroutine) + `spinner.Tick`. The result arrives as `git.BlameResult`.
-3. `App.Update` handles `tea.WindowSizeMsg` directly (calls `blameModel.WithSize`), then delegates all other messages to the active child model.
+3. `App.Update` handles `tea.WindowSizeMsg` directly (calls `WithSize` on all child models), then delegates all other messages to the active child model.
 4. Child→parent communication uses sentinel messages (`blame.OpenDiffMsg`), not callbacks.
 
 ### Column system (`internal/ui/blame/columns.go`)
@@ -44,7 +45,7 @@ require (
 `RecalcWidths(cols, lines, termWidth)` is called on every `BlameResult` and `WindowSizeMsg`.
 
 ### Styles (`internal/ui/styles/styles.go`)
-All lipgloss styles live in `BlameStyles` (returned by `styles.Default()`). `BlameModel` holds a `styles.BlameStyles` value. Add new style fields here; never construct ad-hoc lipgloss styles in render functions except for very specific cases.
+All lipgloss styles live in `BlameStyles` (returned by `styles.Default()`) and `DiffStyles` (returned by `styles.DefaultDiff()`). Add new style fields here; never construct ad-hoc lipgloss styles in render functions except for very specific cases.
 
 ## Development Standards
 - Width measurement **must** use `runewidth.StringWidth()` or `lipgloss.Width()`, never `len()`.
@@ -73,12 +74,13 @@ Use the following guides to get additional context on specific topics of the pro
   - blame view, parent/child commit navigation using history stack, spinner during async blame loading, column system with dynamic width calculation, basic keybindings (`j`/`k`, `ctrl-d`/`ctrl-u`, `g`/`G`, `,`, `<`), horizontal scrolling of code column.
 
 **Phase 2** (in progress):
-  - diff view (`internal/ui/diff/`)
-  - `git show` parser
+  - ~~diff view (`internal/ui/diff/`)~~ (done; `d` key opens full-screen diff, `q` returns to blame)
+  - ~~`git show` parser~~ (done; see `internal/git/show.go`)
   - ~~Chroma highlighting in blame~~ (done; default theme: `github-dark`, see `internal/highlight/`)
   - Whitespace indicators in code column, `·` for space, `→` for tab, `⏎` for EOL
 
 **Phase 3**:
+  - Detailed commit info view (file list + diff preview split, `Enter` key from blame)
   - Column toggle popup (`internal/ui/colmenu/`)
   
 **Phase 4**:

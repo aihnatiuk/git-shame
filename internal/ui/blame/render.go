@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/aihnatiuk/git-shame/internal/git"
+	"github.com/aihnatiuk/git-shame/internal/highlight"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
 	"github.com/charmbracelet/x/ansi"
 
@@ -157,7 +158,7 @@ func renderCell(
 			MaxWidth(col.Width).
 			PaddingRight(padding)
 		if activeBg != nil {
-			content = paintBackground(content, activeBg)
+			content = highlight.PaintBackground(content, activeBg)
 			codeStyle = codeStyle.Background(activeBg)
 		}
 		return codeStyle.Render(content)
@@ -167,16 +168,6 @@ func renderCell(
 			Render(line.Filename)
 	}
 	return ""
-}
-
-// paintBackground re-injects the cursor background SGR after every ANSI reset
-// sequence in s. This is necessary because Chroma emits \x1b[m between tokens,
-// which clears any background color set by lipgloss before the content.
-func paintBackground(s string, bg color.Color) string {
-	bgSGR := ansi.Style{}.BackgroundColor(bg).String()
-	s = strings.ReplaceAll(s, "\x1b[m", "\x1b[m"+bgSGR)
-	s = strings.ReplaceAll(s, "\x1b[0m", "\x1b[0m"+bgSGR)
-	return s
 }
 
 // withBg returns style with cursorBg applied when non-nil, otherwise style unchanged.
