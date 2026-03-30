@@ -3,6 +3,7 @@ package blame
 import (
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/aihnatiuk/git-shame/internal/highlight"
+	"github.com/aihnatiuk/git-shame/internal/text"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
 
 	"charm.land/bubbles/v2/key"
@@ -115,8 +116,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.state = LoadStateLoaded
 		m.lines = msg.Lines
 		contents := make([]string, len(msg.Lines))
-		for i, l := range msg.Lines {
-			contents[i] = l.Content
+		for i := range m.lines {
+			m.lines[i].Content = text.ExpandTabs(m.lines[i].Content, 4)
+			contents[i] = m.lines[i].Content
 		}
 		m.highlightedLines = highlight.HighlightLines(m.relFile, contents)
 		m.columns = RecalcWidths(m.columns, m.lines, m.bodyWidth)

@@ -3,6 +3,7 @@ package diff
 import (
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/aihnatiuk/git-shame/internal/highlight"
+	"github.com/aihnatiuk/git-shame/internal/text"
 	"github.com/aihnatiuk/git-shame/internal/ui/commitinfo"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
 
@@ -89,7 +90,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.commit = msg.Commit
 		m.diff = msg.Diff
 		m.allDiffLines = flattenDiffLines(m.diff)
-		m.highlightedLines = buildHighlightedLines(m.diff, m.relFile)
+		for i := range m.allDiffLines {
+			m.allDiffLines[i].Content = text.ExpandTabs(m.allDiffLines[i].Content, 4)
+		}
+		m.highlightedLines = buildHighlightedLines(m.allDiffLines, m.relFile)
 		m.headerHeight = computeHeaderHeight(m.commit, m.terminalWidth, m.styles)
 		m.bodyHeight = computeBodyHeight(m.terminalHeight, m.headerHeight)
 		m.adjustScrollOffset()
@@ -191,12 +195,10 @@ func flattenDiffLines(fd git.FileDiff) []git.DiffLine {
 }
 
 // buildHighlightedLines applies Chroma highlighting to all content lines in
-// the flattened diff order, skipping hunk headers and no-newline markers.
-func buildHighlightedLines(fd git.FileDiff, relFile string) []string {
-	// Collect only the content lines that can be highlighted.
+// the flattened diff, skipping hunk headers and no-newline markers.
+func buildHighlightedLines(flat []git.DiffLine, relFile string) []string {
 	var contents []string
 	var indices []int
-	flat := flattenDiffLines(fd)
 	for i, dl := range flat {
 		if dl.Type != git.DiffHunkHeader && dl.Type != git.DiffNoNewline {
 			contents = append(contents, dl.Content)

@@ -44,7 +44,7 @@ func RenderBody(m *Model) string {
 	}
 
 	lineNumWidth := calcLineNumWidth(m.allDiffLines)
-	gutterWidth := lineNumWidth*2 + 3 // oldNum + " " + newNum + " " + prefix + " "
+	gutterWidth := lineNumWidth*2 + 4 // oldNum + " " + newNum + " " + prefix + " "
 	contentWidth := max(m.terminalWidth-gutterWidth, 0)
 
 	start := m.vScrollOffset
@@ -97,14 +97,14 @@ func RenderStatusBar(m *Model) string {
 // gutter reads as a cohesive indicator column.
 func renderDiffLine(dl git.DiffLine, highlighted string, lineNumWidth, contentWidth int, s styles.DiffStyles) string {
 	if dl.Type == git.DiffHunkHeader {
-		return s.HunkHeader.Width(lineNumWidth*2 + 3 + contentWidth).Render(
-			ansi.Truncate(dl.Content, lineNumWidth*2+3+contentWidth, "…"),
+		return s.HunkHeader.Width(lineNumWidth*2 + 4 + contentWidth).Render(
+			ansi.Truncate(dl.Content, lineNumWidth*2+4+contentWidth, "…"),
 		)
 	}
 
 	if dl.Type == git.DiffNoNewline {
 		return s.DiffContext.Render(
-			ansi.Truncate(dl.Content, lineNumWidth*2+3+contentWidth, "…"),
+			ansi.Truncate(dl.Content, lineNumWidth*2+4+contentWidth, "…"),
 		)
 	}
 
