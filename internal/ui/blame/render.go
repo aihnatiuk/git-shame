@@ -66,14 +66,7 @@ func RenderBody(m *Model) string {
 	rowsList := make([]string, 0, end-start)
 	rowStyle := m.styles.Row.MaxWidth(m.bodyWidth)
 	for i := start; i < end; i++ {
-		isActiveRow := i == m.cursor
-		var highlighted string
-		if i < len(m.highlightedLines) {
-			highlighted = m.highlightedLines[i]
-		} else {
-			highlighted = m.lines[i].Content
-		}
-		row := RenderRow(m.lines[i], highlighted, m.columns, isActiveRow, m.hScrollOffset, m.styles)
+		row := RenderRow(m.lines[i], m.highlightedLines[i], m.columns, i == m.cursor, m.hScrollOffset, m.styles)
 		rowsList = append(rowsList, rowStyle.Render(row))
 	}
 

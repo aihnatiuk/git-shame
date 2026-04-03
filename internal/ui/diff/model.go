@@ -3,7 +3,6 @@ package diff
 import (
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/aihnatiuk/git-shame/internal/highlight"
-	"github.com/aihnatiuk/git-shame/internal/text"
 	"github.com/aihnatiuk/git-shame/internal/ui/commitinfo"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
 
@@ -90,9 +89,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.commit = msg.Commit
 		m.diff = msg.Diff
 		m.allDiffLines = flattenDiffLines(m.diff)
-		for i := range m.allDiffLines {
-			m.allDiffLines[i].Content = text.ExpandTabs(m.allDiffLines[i].Content, 4)
-		}
 		m.highlightedLines = buildHighlightedLines(m.allDiffLines, m.relFile)
 		m.headerHeight = computeHeaderHeight(m.commit, m.terminalWidth, m.styles)
 		m.bodyHeight = computeBodyHeight(m.terminalHeight, m.headerHeight)
@@ -198,12 +194,21 @@ func flattenDiffLines(fd git.FileDiff) []git.DiffLine {
 // the flattened diff, skipping hunk headers and no-newline markers.
 func buildHighlightedLines(flat []git.DiffLine, relFile string) []string {
 	var contents []string
-	var indices []int
+	var contentIndices []int
+	var overrides map[int]string
+
 	for i, dl := range flat {
-		if dl.Type != git.DiffHunkHeader && dl.Type != git.DiffNoNewline {
-			contents = append(contents, dl.Content)
-			indices = append(indices, i)
+		if dl.Type == git.DiffHunkHeader || dl.Type == git.DiffNoNewline {
+			continue
 		}
+		if dl.Type == git.DiffRemoved {
+			if overrides == nil {
+				overrides = make(map[int]string)
+			}
+			overrides[len(contents)] = styles.OldLineNumFG
+		}
+		contents = append(contents, dl.Content)
+		contentIndices = append(contentIndices, i)
 	}
 
 	result := make([]string, len(flat))
@@ -215,8 +220,8 @@ func buildHighlightedLines(flat []git.DiffLine, relFile string) []string {
 		return result
 	}
 
-	highlighted := highlight.HighlightLines(relFile, contents)
-	for j, idx := range indices {
+	highlighted := highlight.HighlightLinesWithFgOverride(relFile, contents, overrides)
+	for j, idx := range contentIndices {
 		result[idx] = highlighted[j]
 	}
 	return result

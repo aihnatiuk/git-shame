@@ -5,6 +5,10 @@ import "charm.land/lipgloss/v2"
 // Ellipsis is the truncation indicator used when text is clipped to fit a column or region.
 const Ellipsis = "…"
 
+// OldLineNumFG is the ANSI SGR for the diff removed-line text color.
+// Kept in sync with the OldLineNum lipgloss style foreground.
+const OldLineNumFG = "\x1b[38;5;245m"
+
 // DiffStyles holds all lipgloss styles used by the diff view.
 type DiffStyles struct {
 	TitleBar  lipgloss.Style

@@ -124,8 +124,8 @@ func renderDiffLine(dl git.DiffLine, highlighted string, lineNumWidth, contentWi
 		oldNumStyle = s.DiffRemovedPrefix
 		newNumStyle = s.OldLineNum
 		prefix = s.DiffRemovedPrefix.Render("-")
-		renderedContent = s.OldLineNum.Width(contentWidth).MaxWidth(contentWidth).
-			Render(ansi.Truncate(dl.Content, contentWidth, styles.Ellipsis))
+		renderedContent = s.DiffContext.Width(contentWidth).MaxWidth(contentWidth).
+			Render(ansi.Truncate(highlighted, contentWidth, styles.Ellipsis))
 
 	default: // DiffContext
 		oldNumStyle = s.OldLineNum

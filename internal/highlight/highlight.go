@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/alecthomas/chroma/v2"
-	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/lexers"
 	chromastyles "github.com/alecthomas/chroma/v2/styles"
 	"github.com/charmbracelet/x/ansi"
@@ -23,7 +22,20 @@ const DefaultTheme = "github-dark"
 // Returns ANSI-escaped strings with the same length as the input slice.
 // On any error the input lines are returned unchanged.
 func HighlightLines(filename string, lines []string) []string {
-	result, err := highlightLines(filename, lines)
+	result, err := highlightLines(filename, lines, nil)
+	if err != nil {
+		return lines
+	}
+	return result
+}
+
+// HighlightLinesWithFgOverride applies Chroma syntax highlighting with optional
+// per-line foreground overrides. overrides maps 0-based line indices to ANSI
+// foreground SGR strings; for those lines the token foreground is replaced with
+// the override while bold/italic/underline from the theme are preserved.
+// On any error the input lines are returned unchanged.
+func HighlightLinesWithFgOverride(filename string, lines []string, overrides map[int]string) []string {
+	result, err := highlightLines(filename, lines, overrides)
 	if err != nil {
 		return lines
 	}
@@ -40,7 +52,7 @@ func PaintBackground(s string, bg color.Color) string {
 	return s
 }
 
-func highlightLines(filename string, lines []string) ([]string, error) {
+func highlightLines(filename string, lines []string, fgOverrides map[int]string) ([]string, error) {
 	lexer := lexers.Match(filename)
 	if lexer == nil {
 		lexer = lexers.Fallback
@@ -60,7 +72,7 @@ func highlightLines(filename string, lines []string) ([]string, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := formatters.TTY16m.Format(&buf, style, iterator); err != nil {
+	if err := (&wsFormatter{tabWidth: 4, fgOverrides: fgOverrides}).Format(&buf, style, iterator); err != nil {
 		return nil, err
 	}
 

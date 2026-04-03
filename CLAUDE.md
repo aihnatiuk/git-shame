@@ -73,6 +73,9 @@ go build -o shame.exe .
 Use the following guides to get additional context on specific topics of the project. Load them only when it is needed for the task at hand.
 - [Agreed list of default keybindings](@.codemie/guides/keybindings.md)
 
+## Plans
+Implementation plans are saved to `.codemie/plans/` in the project directory. Always save new plans there before implementing.
+
 ## Implementation phases
 **Phase 1** (done):
   - blame view, parent/child commit navigation using history stack, spinner during async blame loading, column system with dynamic width calculation, basic keybindings (`j`/`k`, `ctrl-d`/`ctrl-u`, `g`/`G`, `,`, `<`), horizontal scrolling of code column.
@@ -81,7 +84,7 @@ Use the following guides to get additional context on specific topics of the pro
   - ~~diff view (`internal/ui/diff/`)~~ (done; `d` key opens full-screen diff, `q` returns to blame)
   - ~~`git show` parser~~ (done; see `internal/git/show.go`)
   - ~~Chroma highlighting in blame~~ (done; default theme: `github-dark`, see `internal/highlight/`)
-  - Whitespace indicators in code column, `·` for space, `→` for tab, `⏎` for EOL
+  - ~~Whitespace indicators in code column and diff view, `·` for space, `→` for tab~~ (done; see `internal/text/text.go`)
 
 **Phase 3**:
   - Detailed commit info view (file list + diff preview split, `Enter` key from blame)

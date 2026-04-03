@@ -117,7 +117,7 @@ func RecalcWidths(cols []Column, lines []git.BlameLine, termWidth int) []Column 
 // Code column: the number of columns by which the longest line exceeds the
 // visible code column width. A terminal resize or new blame load must call
 // this again because both the line content and the code column width can change.
-func CalcMaxHScroll(cols []Column, lines []git.BlameLine) int {
+func CalcMaxHScroll(cols []Column, lines []string) int {
 	codeWidth := 0
 	for _, col := range cols {
 		if col.ID == ColCode && col.Visible {
@@ -132,7 +132,7 @@ func CalcMaxHScroll(cols []Column, lines []git.BlameLine) int {
 
 	maxContent := 0
 	for _, line := range lines {
-		if w := lipgloss.Width(line.Content); w > maxContent {
+		if w := lipgloss.Width(line); w > maxContent {
 			maxContent = w
 		}
 	}

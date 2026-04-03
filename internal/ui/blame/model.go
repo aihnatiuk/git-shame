@@ -3,7 +3,6 @@ package blame
 import (
 	"github.com/aihnatiuk/git-shame/internal/git"
 	"github.com/aihnatiuk/git-shame/internal/highlight"
-	"github.com/aihnatiuk/git-shame/internal/text"
 	"github.com/aihnatiuk/git-shame/internal/ui/styles"
 
 	"charm.land/bubbles/v2/key"
@@ -116,13 +115,12 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.state = LoadStateLoaded
 		m.lines = msg.Lines
 		contents := make([]string, len(msg.Lines))
-		for i := range m.lines {
-			m.lines[i].Content = text.ExpandTabs(m.lines[i].Content, 4)
-			contents[i] = m.lines[i].Content
+		for i, line := range msg.Lines {
+			contents[i] = line.Content
 		}
 		m.highlightedLines = highlight.HighlightLines(m.relFile, contents)
 		m.columns = RecalcWidths(m.columns, m.lines, m.bodyWidth)
-		m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.lines)
+		m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.highlightedLines)
 		// Restore cursor if we navigated back, otherwise clamp to new line count.
 		if m.pendingCursor > 0 {
 			m.cursor = m.pendingCursor
@@ -224,7 +222,7 @@ func (m Model) WithSize(w, h int) Model {
 	m.bodyWidth = w
 	m.bodyHeight = max(m.terminalHeight-(titleHeight+statusHeight), 1)
 	m.columns = RecalcWidths(m.columns, m.lines, m.bodyWidth)
-	m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.lines)
+	m.maxHScrollOffset = CalcMaxHScroll(m.columns, m.highlightedLines)
 	m.hScrollOffset = min(m.hScrollOffset, m.maxHScrollOffset)
 	m.adjustVerticalScrollOffset()
 
