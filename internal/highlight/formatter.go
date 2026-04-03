@@ -27,18 +27,12 @@ type wsFormatter struct {
 }
 
 func (f *wsFormatter) Format(w io.Writer, style *chroma.Style, it chroma.Iterator) error {
-	buf := toBuf(w)
+	buf := w.(*bytes.Buffer)
 	for token := it(); token != chroma.EOF; token = it() {
 		entry := style.Get(token.Type)
 		f.writeTokenValue(buf, entry, token.Value)
 	}
 	return nil
-}
-
-// toBuf returns w as a *bytes.Buffer if possible, otherwise panics — the only
-// caller always passes a *bytes.Buffer so this avoids a heap allocation.
-func toBuf(w io.Writer) *bytes.Buffer {
-	return w.(*bytes.Buffer)
 }
 
 // buildSyntaxFmt writes the ANSI escape sequence for a token's text attributes
@@ -89,9 +83,6 @@ func writeInt(b *bytes.Buffer, n int) {
 
 // currentLineFg returns the fg override for the current line, or "" if none.
 func (f *wsFormatter) currentLineFg() string {
-	if f.fgOverrides == nil {
-		return ""
-	}
 	return f.fgOverrides[f.currentLine]
 }
 
@@ -107,8 +98,8 @@ func (f *wsFormatter) writeTokenValue(buf *bytes.Buffer, entry chroma.StyleEntry
 			break
 		}
 		segment := text[:newLineIndex]
-		if newLineIndex > 0 && segment[newLineIndex-1] == '\r' {
-			segment = segment[:newLineIndex-1]
+		if len(segment) > 0 && segment[len(segment)-1] == '\r' {
+			segment = segment[:len(segment)-1]
 		}
 		syntaxFmt := f.takeSyntaxFmt(buf, entry)
 		f.writeSegment(buf, syntaxFmt, segment)
@@ -138,6 +129,18 @@ func (f *wsFormatter) takeSyntaxFmt(scratch *bytes.Buffer, entry chroma.StyleEnt
 	return s
 }
 
+// writeStyled wraps text with an ANSI SGR prefix and reset, or writes it plain
+// when syntaxFmt is empty.
+func writeStyled(w *bytes.Buffer, syntaxFmt, text string) {
+	if syntaxFmt != "" {
+		w.WriteString(syntaxFmt)
+	}
+	w.WriteString(text)
+	if syntaxFmt != "" {
+		w.WriteString(ansi.ResetStyle)
+	}
+}
+
 // writeSegment emits one line of a token value. Non-whitespace runs are wrapped
 // with syntaxFmt; each space becomes a dim · and each tab becomes a dim →
 // followed by plain spaces to preserve column alignment.
@@ -148,13 +151,7 @@ func (f *wsFormatter) writeSegment(w *bytes.Buffer, syntaxFmt, text string) {
 			continue
 		}
 		if i > segStart {
-			if syntaxFmt != "" {
-				w.WriteString(syntaxFmt)
-			}
-			w.WriteString(text[segStart:i])
-			if syntaxFmt != "" {
-				w.WriteString(ansi.ResetStyle)
-			}
+			writeStyled(w, syntaxFmt, text[segStart:i])
 		}
 		w.WriteString(IndicatorSGR)
 		if r == '\t' {
@@ -168,12 +165,6 @@ func (f *wsFormatter) writeSegment(w *bytes.Buffer, syntaxFmt, text string) {
 		segStart = i + 1 // space and tab are both single bytes
 	}
 	if segStart < len(text) {
-		if syntaxFmt != "" {
-			w.WriteString(syntaxFmt)
-		}
-		w.WriteString(text[segStart:])
-		if syntaxFmt != "" {
-			w.WriteString(ansi.ResetStyle)
-		}
+		writeStyled(w, syntaxFmt, text[segStart:])
 	}
 }
